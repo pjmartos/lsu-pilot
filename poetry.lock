@@ -1079,6 +1079,20 @@ files = [
 ]
 
 [[package]]
+name = "ollama"
+version = "0.3.3"
+description = "The official Python client for Ollama."
+optional = false
+python-versions = "<4.0,>=3.8"
+files = [
+    {file = "ollama-0.3.3-py3-none-any.whl", hash = "sha256:ca6242ce78ab34758082b7392df3f9f6c2cb1d070a9dede1a4c545c929e16dba"},
+    {file = "ollama-0.3.3.tar.gz", hash = "sha256:f90a6d61803117f40b0e8ff17465cab5e1eb24758a473cfe8101aff38bc13b51"},
+]
+
+[package.dependencies]
+httpx = ">=0.27.0,<0.28.0"
+
+[[package]]
 name = "openai"
 version = "1.52.1"
 description = "The official Python library for the openai API"
@@ -2279,4 +2293,4 @@ propcache = ">=0.2.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "6230c9cd4d202ece76551c6c229152ed03d76c23bd2516e0b9783fb373a6e721"
+content-hash = "92052422f057b28456e428ea32c404a1509cca8f9a6f7e0e32282eb9cc71e502"

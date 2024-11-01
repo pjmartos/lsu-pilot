@@ -1,11 +1,10 @@
 from .functions import functions, run_function
-import json
 import os
 import logging
 from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters
 from dotenv import load_dotenv
-from openai import OpenAI
+from ollama import AsyncClient
 import pandas as pd
 import numpy as np
 from .questions import answer_question
@@ -41,6 +40,9 @@ Make sure All HTML is generated with the JSX flavoring.
     border: '2px solid red'
   }}></div>
 </div>
+Again, make sure All HTML is generated with the JSX flavoring.
+If you instead need to call a tool, please make sure you're providing all required arguments with their proper names.
+Any misbehaviour will be severely punished.
 """
 
 # Get the directory of the current script
@@ -53,7 +55,7 @@ df["embeddings"] = df["embeddings"].apply(eval).apply(np.array)
 
 load_dotenv()  # take environment variables from .env.
 
-openai = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+ollama = AsyncClient()
 tg_bot_token = os.getenv("TG_BOT_TOKEN")
 
 
@@ -75,58 +77,56 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     messages.append({"role": "user", "content": update.message.text})
-    initial_response = openai.chat.completions.create(
-        model="gpt-4o-mini", messages=messages, tools=functions)
-    initial_response_message = initial_response.choices[0].message
+    initial_response = await ollama.chat(
+        model="llama3.1:70b", messages=messages, tools=functions)
+    initial_response_message = initial_response["message"]
     messages.append(initial_response_message)
-    tool_calls = initial_response_message.tool_calls
+    tool_calls = initial_response_message.get('tool_calls')
     if tool_calls:
+        print(tool_calls)
         for tool_call in tool_calls:
-            name = tool_call.function.name
-            args = json.loads(tool_call.function.arguments)
+            name = tool_call['function']['name']
+            args = tool_call['function']['arguments']
             response = run_function(name, args)
-            print(tool_calls)
+
             if name == 'svg_to_png_bytes':
                 await context.bot.send_photo(
                     chat_id=update.effective_chat.id, photo=response
                 )
                 messages.append(
                     {
-                        "tool_call_id": tool_call.id,
                         "role": "tool",
                         "name": name,
-                        "content": str(response) + "Image was sent to the user, do not send the base64 string to them. Only send back 'here is the svg rendered as requested'"
+                        "content": str(response) + "Image was sent to the user, do not send the base64 string to them. ONLY send back 'here is the svg rendered as requested'"
                     }
                 )
             else:
                 messages.append(
                     {
-                        "tool_call_id": tool_call.id,
                         "role": "tool",
                         "name": name,
                         "content": str(response)
                     }
                 )
 
-            final_response = openai.chat.completions.create(
-                model="gpt-4o-mini", messages=messages
+        final_response = await ollama.chat(
+            model='llama3.1:70b', messages=messages
+        )
+        final_answer = final_response["message"]
+        if final_answer:
+            messages.append(final_answer)
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=final_answer["content"]
             )
-            final_answer = final_response.choices[0].message
-            if final_answer:
-                messages.append(final_answer)
-                await context.bot.send_message(
-                    chat_id=update.effective_chat.id,
-                    text=final_answer.content
-                )
-            else:
-                # Send an error message if something went wrong
-                await context.bot.send_message(
-                    chat_id=update.effective_chat.id,
-                    text="something wrong happened, please try again"
-                )
+        else:
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text="something wrong happened, please try again"
+            )
     else:
         await context.bot.send_message(
-            chat_id=update.effective_chat.id, text=initial_response_message.content
+            chat_id=update.effective_chat.id, text=initial_response_message["content"]
         )
 
 async def mozilla(update: Update, context: ContextTypes.DEFAULT_TYPE):
