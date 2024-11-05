@@ -148,11 +148,21 @@ async def image(update: Update, context: ContextTypes.DEFAULT_TYPE):
           photo=image_response.content
       )
 
+async def transcription(update: Update, context: ContextTypes.DEFAULT_TYPE):
+      await update.message.reply_text("We're preparing your transcription, stay tuned...")
+      voice_id = update.message.voice.file_id
+      file = await context.bot.get_file(voice_id)
+      await file.download_to_drive(f"voice_note_{voice_id}.ogg")
+      file_path = open(f"voice_note_{voice_id}.ogg", "rb")
+      transcript = openai.audio.transcriptions.create(model="whisper-1", file=file_path)
+      await update.message.reply_text(f"Transcription finished: {transcript.text}")
+
 if __name__ == '__main__':
   application = ApplicationBuilder().token(tg_bot_token).build()
 
   start_handler = CommandHandler('start', start)
   chat_handler = MessageHandler(filters.TEXT & (~filters.COMMAND), chat)
+  transcription_handler = MessageHandler(filters.VOICE, transcription)
   mozilla_handler = CommandHandler('mozilla', mozilla)
   image_handler = CommandHandler('image', image)
 
@@ -160,5 +170,6 @@ if __name__ == '__main__':
   application.add_handler(chat_handler)
   application.add_handler(mozilla_handler)
   application.add_handler(image_handler)
+  application.add_handler(transcription_handler)
 
   application.run_polling()
