@@ -10,6 +10,9 @@ from openai import OpenAI
 import pandas as pd
 import numpy as np
 from .questions import answer_question
+from whisper_cpp_python import Whisper
+
+whisper = Whisper(model_path="./models/ggml-tiny.bin")
 
 CODE_PROMPT = """
 Here are two input:output examples for code generation. Please use these and follow the styling for future requests that you think are pertinent to the request.
@@ -154,8 +157,8 @@ async def transcription(update: Update, context: ContextTypes.DEFAULT_TYPE):
       file = await context.bot.get_file(voice_id)
       await file.download_to_drive(f"voice_note_{voice_id}.ogg")
       file_path = open(f"voice_note_{voice_id}.ogg", "rb")
-      transcript = openai.audio.transcriptions.create(model="whisper-1", file=file_path)
-      await update.message.reply_text(f"Transcription finished: {transcript.text}")
+      transcript = whisper.transcribe(file_path)
+      await update.message.reply_text(f"Transcription finished: {transcript['text']}")
 
 if __name__ == '__main__':
   application = ApplicationBuilder().token(tg_bot_token).build()
